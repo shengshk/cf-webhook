@@ -166,6 +166,13 @@ curl -X POST "https://你的Worker地址" \
   -d "来自 cfwebhook 的测试"
 ```
 
+### 警告与免责声明
+
+- 本项目仅供**个人 / 内部通知**转发。部署与使用后果由使用者自行承担。
+- **禁止**用于垃圾信息、钓鱼、滥用，或任何违反 [Cloudflare 服务条款](https://www.cloudflare.com/terms/)、[可接受使用政策](https://www.cloudflare.com/acceptable-use-policy/)、[Telegram 服务条款](https://telegram.org/tos) 的行为。
+- 请妥善保管 Bot Token 与 chat id。生产环境建议配置 `WHITE_IPs`。任何人只要能 `POST` 你的 Worker 地址，即可向你的 Telegram 会话推送消息。
+- Cloudflare / Telegram 可能因滥用或超额限流、封禁账号。本软件按 **MIT「按现状」** 提供，**不作任何保证**；作者对账号封禁、数据丢失或由此产生的损失 **不承担责任**。
+
 ### 许可证
 
 [MIT](LICENSE) © 2026 jack (shengshk)
