@@ -5,6 +5,7 @@ import {
   handleTelegramUpdate,
   parseTelegramBot,
   sendMessageToAll,
+  setupBotHooks,
 } from './telegram';
 
 function appendTimestamp(text: string, timeZone: string): string {
@@ -59,6 +60,21 @@ export default {
         // Always 200 so Telegram does not retry endlessly on bad payloads
       }
       return new Response('OK', { status: 200 });
+    }
+
+    if (request.method === 'GET' && url.pathname === '/setup') {
+      if (!bot) {
+        return new Response(JSON.stringify({ ok: false, error: 'TELEGRAM_BOT not configured' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      }
+      const force = url.searchParams.get('force') === '1';
+      const result = await setupBotHooks(bot.token, origin, force);
+      return new Response(JSON.stringify({ ok: true, ...result }, null, 2), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      });
     }
 
     if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {

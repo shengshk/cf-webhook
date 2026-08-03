@@ -14,6 +14,14 @@ function parseTelegramBot(raw) {
 function apiUrl(token, method) {
   return `https://api.telegram.org/bot${token}/${method}`;
 }
+async function tgJson(token, method, body) {
+  const res = await fetch(apiUrl(token, method), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === void 0 ? void 0 : JSON.stringify(body)
+  });
+  return res.json();
+}
 async function sendMessage(token, chatId, text) {
   return fetch(apiUrl(token, "sendMessage"), {
     method: "POST",
@@ -32,24 +40,48 @@ async function sendMessageToAll(token, chatIds, text) {
   const errors = results.filter((e) => e !== null);
   return { ok: errors.length < chatIds.length, errors };
 }
+var WEBHOOK_COMMAND = {
+  command: "webhook",
+  description: "Get webhook URL / \u83B7\u53D6 Webhook \u94FE\u63A5"
+};
+async function setupBotHooks(token, publicOrigin, forceWebhook = false) {
+  const origin = publicOrigin.replace(/\/$/, "");
+  const webhookUrl = `${origin}/telegram`;
+  const webhookInfo = await tgJson(token, "getWebhookInfo");
+  const currentUrl = webhookInfo?.result?.url || "";
+  let setWebhookResult = { skipped: true, current: currentUrl };
+  const canSetWebhook = forceWebhook || !currentUrl || currentUrl === webhookUrl || currentUrl.startsWith(`${origin}/`);
+  if (canSetWebhook) {
+    setWebhookResult = await tgJson(token, "setWebhook", {
+      url: webhookUrl,
+      allowed_updates: ["message"]
+    });
+  } else {
+    setWebhookResult = {
+      skipped: true,
+      reason: "Another service already owns this bot webhook. Use a dedicated bot, or open /setup?force=1 (will break the other service).",
+      current: currentUrl,
+      wanted: webhookUrl
+    };
+  }
+  const existing = await tgJson(token, "getMyCommands");
+  const commands = [...existing?.result || []];
+  if (!commands.some((c) => c.command === WEBHOOK_COMMAND.command)) {
+    commands.push(WEBHOOK_COMMAND);
+  }
+  const setCommandsResult = await tgJson(token, "setMyCommands", { commands });
+  const afterCommands = await tgJson(token, "getMyCommands");
+  const afterWebhook = await tgJson(token, "getWebhookInfo");
+  return {
+    webhookUrl,
+    setWebhook: setWebhookResult,
+    setMyCommands: setCommandsResult,
+    commands: afterCommands,
+    webhookInfo: afterWebhook
+  };
+}
 async function ensureBotHooks(token, publicOrigin) {
-  const webhookUrl = `${publicOrigin.replace(/\/$/, "")}/telegram`;
-  await Promise.all([
-    fetch(apiUrl(token, "setWebhook"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl, allowed_updates: ["message"] })
-    }),
-    fetch(apiUrl(token, "setMyCommands"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        commands: [
-          { command: "webhook", description: "Get webhook URL / \u83B7\u53D6 Webhook \u94FE\u63A5" }
-        ]
-      })
-    })
-  ]);
+  await setupBotHooks(token, publicOrigin, false);
 }
 function extractCommand(text) {
   if (!text) return null;
@@ -110,6 +142,20 @@ var index_default = {
       } catch {
       }
       return new Response("OK", { status: 200 });
+    }
+    if (request.method === "GET" && url.pathname === "/setup") {
+      if (!bot) {
+        return new Response(JSON.stringify({ ok: false, error: "TELEGRAM_BOT not configured" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json; charset=utf-8" }
+        });
+      }
+      const force = url.searchParams.get("force") === "1";
+      const result = await setupBotHooks(bot.token, origin, force);
+      return new Response(JSON.stringify({ ok: true, ...result }, null, 2), {
+        status: 200,
+        headers: { "Content-Type": "application/json; charset=utf-8" }
+      });
     }
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "")) {
       if (bot) {

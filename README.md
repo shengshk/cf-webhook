@@ -64,9 +64,9 @@ Remove old vars if present: `TELEGRAM_TOKEN`, `TELEGRAM_ID`, `WHITE_IP_LIST`.
 
 ### Bot command `/webhook`
 
-1. Open the Worker URL once in a browser (GET `/`) so the Worker can call `setWebhook` + `setMyCommands`.
-2. In Telegram, talk to the bot as the **admin** (first chat id).
-3. Tap / send `/webhook` — the bot replies with the public webhook link.
+1. Open `https://YOUR_WORKER_HOST/setup` once — it registers `/webhook` (merged with existing commands) and reports webhook status as JSON.
+2. Talk to the bot as the **admin** (first chat id) and send `/webhook`.
+3. **Important:** One Telegram bot can only have **one** webhook URL. If this token is shared with another Worker (e.g. mail2telegram), create a **dedicated bot** for cfwebhook. Using `/setup?force=1` will point the bot webhook here and break the other service.
 
 ### Deploy
 
