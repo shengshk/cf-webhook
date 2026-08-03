@@ -84,6 +84,13 @@ curl -X POST "https://YOUR_WORKER_URL" \
   -d "hello from cfwebhook"
 ```
 
+### Warning & disclaimer
+
+- This project is for **personal / internal notification** forwarding only. You are solely responsible for how you deploy and use it.
+- Do **not** use it for spam, phishing, abuse, or any activity that violates [Cloudflare Terms](https://www.cloudflare.com/terms/), [Cloudflare AUP](https://www.cloudflare.com/acceptable-use-policy/), or [Telegram Terms](https://telegram.org/tos).
+- Keep your Bot token and chat IDs secret. Prefer `WHITE_IPs` in production. Anyone who can `POST` your Worker URL can push messages into your Telegram chats.
+- Cloudflare / Telegram may rate-limit or suspend accounts for abuse or quota excess. The authors provide this software **as-is**, with **no warranty**, and are **not liable** for account bans, data loss, or damages arising from use.
+
 ### License
 
 [MIT](LICENSE) © 2026 jack (shengshk)
