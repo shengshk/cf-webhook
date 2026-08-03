@@ -1,0 +1,13 @@
+{
+  "name": "cfwebhook",
+  "main": "build/index.js",
+  "compatibility_date": "2025-09-15",
+  "keep_vars": true,
+  // Secrets / Vars 建议在 Cloudflare 控制台配置：
+  //   TELEGRAM_TOKEN
+  //   TELEGRAM_ID
+  // 可选：
+  //   WHITE_IP_LIST=1.2.3.4,5.6.7.8
+  //   TIMER_STAMP=Asia/Shanghai
+  "vars": {}
+}
