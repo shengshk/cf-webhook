@@ -1,14 +1,25 @@
 # cfwebhook
 
-Cloudflare Worker that receives HTTP webhooks and forwards the body to Telegram.
+<p align="center">
+  <a href="#english"><img src="https://img.shields.io/badge/lang-English-0B5FFF?style=for-the-badge" alt="English" /></a>
+  &nbsp;
+  <a href="#中文"><img src="https://img.shields.io/badge/lang-中文-E34F26?style=for-the-badge" alt="中文" /></a>
+</p>
 
-将 HTTP Webhook 请求体转发到 Telegram 的 Cloudflare Worker。
+<p align="center">
+  Cloudflare Worker · HTTP Webhook → Telegram<br/>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT" /></a>
+</p>
 
 ![Status page](docs/status-page.jpg)
 
 ---
 
 ## English
+
+<p align="right"><a href="#中文">中文 ▸</a></p>
+
+Cloudflare Worker that receives HTTP webhooks and forwards the body to Telegram.
 
 ### What it does
 
@@ -67,9 +78,17 @@ curl -X POST "https://YOUR_WORKER_URL" \
   -d "hello from cfwebhook"
 ```
 
+### License
+
+[MIT](LICENSE) © 2026 jack (shengshk)
+
 ---
 
 ## 中文
+
+<p align="right"><a href="#english">◂ English</a></p>
+
+将 HTTP Webhook 请求体转发到 Telegram 的 Cloudflare Worker。
 
 ### 功能说明
 
@@ -128,8 +147,6 @@ curl -X POST "https://你的Worker地址" \
   -d "来自 cfwebhook 的测试"
 ```
 
----
+### 许可证
 
-## License
-
-Private repository.
+[MIT](LICENSE) © 2026 jack (shengshk)
