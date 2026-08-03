@@ -255,7 +255,7 @@ async function setupBotHooks(token, publicOrigin, forceWebhook = false) {
   } else {
     setWebhookResult = {
       skipped: true,
-      reason: "Another service already owns this bot webhook. Use a dedicated bot, or open /setup?force=1 (will break the other service).",
+      reason: "Another webhook is already set on this bot. Use a dedicated bot, or /setup?force=1 to overwrite.",
       current: currentUrl,
       wanted: webhookUrl
     };

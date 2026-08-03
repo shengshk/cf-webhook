@@ -60,9 +60,9 @@ Example `TELEGRAM_BOT`:
 
 ### Bot command `/webhook`
 
-1. Open `https://YOUR_WORKER_HOST/setup` once — it registers `/webhook` (merged with existing commands) and reports webhook status as JSON.
+1. Open `https://YOUR_WORKER_HOST/setup` once — it registers `/webhook` and reports webhook status as JSON.
 2. Talk to the bot as the **admin** (first chat id) and send `/webhook`.
-3. **Important:** One Telegram bot can only have **one** webhook URL. If this token is shared with another Worker (e.g. mail2telegram), create a **dedicated bot** for cfwebhook. Using `/setup?force=1` will point the bot webhook here and break the other service.
+3. One Telegram bot can only have **one** webhook URL. Use a **dedicated bot** for this Worker.
 
 ### Deploy
 
@@ -142,9 +142,9 @@ curl -X POST "https://YOUR_WORKER_URL" \
 
 ### Bot 命令 `/webhook`
 
-1. 浏览器打开一次 `https://你的Worker域名/setup`，会注册 `/webhook`（与已有命令合并），并以 JSON 返回状态。
+1. 浏览器打开一次 `https://你的Worker域名/setup`，会注册 `/webhook`，并以 JSON 返回状态。
 2. 用**管理 id（第一个）** 在 Telegram 发送 `/webhook`。
-3. **重要：** 一个 Bot 只能绑定 **一个** Webhook。若 Token 与 mail2telegram 等共用，请为 cfwebhook **单独新建 Bot**。使用 `/setup?force=1` 会把 Webhook 抢到本服务，导致另一服务失效。
+3. 一个 Bot 只能绑定 **一个** Webhook。请为本 Worker 使用**独立 Bot**。
 
 ### 部署
 
