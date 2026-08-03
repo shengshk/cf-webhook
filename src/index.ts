@@ -1,5 +1,11 @@
 import type { Env } from './env';
 import statusHtml from './status.html';
+import {
+  ensureBotHooks,
+  handleTelegramUpdate,
+  parseTelegramBot,
+  sendMessageToAll,
+} from './telegram';
 
 function appendTimestamp(text: string, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -19,9 +25,46 @@ function appendTimestamp(text: string, timeZone: string): string {
   return `${text}\n—————————\n时间: ${stamp}`;
 }
 
+function checkWhiteIps(request: Request, whiteIps: string | undefined): Response | null {
+  if (!whiteIps || whiteIps.trim() === '') return null;
+
+  const clientIp = request.headers.get('CF-Connecting-IP') || '';
+  const allowedIps = whiteIps.split(',').map(ip => ip.trim()).filter(Boolean);
+
+  if (!allowedIps.includes(clientIp)) {
+    return new Response('Forbidden: IP not allowed', { status: 403 });
+  }
+  return null;
+}
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'GET') {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    const origin = url.origin;
+    const bot = parseTelegramBot(env.TELEGRAM_BOT);
+
+    // Bot callback from Telegram — no IP allowlist
+    if (url.pathname === '/telegram') {
+      if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+      }
+      if (!bot) {
+        return new Response('TELEGRAM_BOT not configured', { status: 500 });
+      }
+
+      try {
+        const update = await request.json();
+        await handleTelegramUpdate(update, bot, origin);
+      } catch {
+        // Always 200 so Telegram does not retry endlessly on bad payloads
+      }
+      return new Response('OK', { status: 200 });
+    }
+
+    if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '')) {
+      if (bot) {
+        ctx.waitUntil(ensureBotHooks(bot.token, origin));
+      }
       return new Response(statusHtml, {
         status: 200,
         headers: {
@@ -31,17 +74,20 @@ export default {
       });
     }
 
+    // Business webhook receive → forward
+    if (url.pathname !== '/' && url.pathname !== '') {
+      return new Response('Not found', { status: 404 });
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    if (env.WHITE_IP_LIST && env.WHITE_IP_LIST.trim() !== '') {
-      const clientIp = request.headers.get('CF-Connecting-IP') || '';
-      const allowedIps = env.WHITE_IP_LIST.split(',').map(ip => ip.trim());
+    const denied = checkWhiteIps(request, env.WHITE_IPs);
+    if (denied) return denied;
 
-      if (!allowedIps.includes(clientIp)) {
-        return new Response('Forbidden: IP not allowed', { status: 403 });
-      }
+    if (!bot) {
+      return new Response('TELEGRAM_BOT not configured', { status: 500 });
     }
 
     const rawText = await request.text();
@@ -60,20 +106,14 @@ export default {
       }
     }
 
-    const telegramUrl = `https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`;
+    const { ok, errors } = await sendMessageToAll(bot.token, bot.chatIds, messageContent);
 
-    const tgResponse = await fetch(telegramUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: env.TELEGRAM_ID,
-        text: messageContent,
-      }),
-    });
+    if (!ok) {
+      return new Response(`Telegram API Error: ${errors.join(' | ')}`, { status: 500 });
+    }
 
-    if (!tgResponse.ok) {
-      const errorText = await tgResponse.text();
-      return new Response(`Telegram API Error: ${errorText}`, { status: 500 });
+    if (errors.length > 0) {
+      return new Response(`Partial success: ${errors.join(' | ')}`, { status: 200 });
     }
 
     return new Response('Success', { status: 200 });
