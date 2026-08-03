@@ -71,8 +71,8 @@
       min-height: 3.25rem;
       display: grid;
       place-items: center;
-      line-height: 1.35;
-      padding: 0.15rem 0;
+      line-height: 1.55;
+      padding: 0.35rem 0;
     }
 
     .status span {
@@ -80,7 +80,7 @@
       font-size: clamp(1.5rem, 4vw, 2rem);
       font-weight: 600;
       letter-spacing: 0.04em;
-      line-height: 1.35;
+      line-height: 1.55;
       opacity: 0;
       transform: translateY(6px);
       transition: opacity 0.55s ease, transform 0.55s ease;
@@ -88,7 +88,7 @@
 
     .status span.active {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
 
     .hint {
@@ -153,11 +153,11 @@
       <span>En cours…</span>
       <span>Работает…</span>
     </div>
-    <p class="hint">cfwebhook · online</p>
+    <p class="hint">cf-webhook · online</p>
   </main>
   <div class="toast" id="toast">Webhook 已复制</div>
   <script>
-    const GITHUB = "https://github.com/shengshk/cfwebhook";
+    const GITHUB = "https://github.com/shengshk/cf-webhook";
 
     const phrases = document.querySelectorAll("#status span");
     let i = 0;
