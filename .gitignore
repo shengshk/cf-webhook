@@ -1,8 +1,5 @@
 node_modules/
 .wrangler/
 .dev.vars
-wrangler.json
-wrangler.jsonc
-wrangler.toml
 *.log
 .DS_Store

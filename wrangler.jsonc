@@ -1,0 +1,6 @@
+{
+  "name": "cfwebhook",
+  "main": "build/index.js",
+  "compatibility_date": "2025-09-15",
+  "keep_vars": true
+}
