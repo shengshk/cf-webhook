@@ -58,10 +58,6 @@ Example `TELEGRAM_BOT`:
 123456:AAF-xxxx,111111111,222222222
 ```
 
-Remove old vars if present: `TELEGRAM_TOKEN`, `TELEGRAM_ID`, `WHITE_IP_LIST`.
-
-`keep_vars` is on in `wrangler.jsonc`.
-
 ### Bot command `/webhook`
 
 1. Open `https://YOUR_WORKER_HOST/setup` once — it registers `/webhook` (merged with existing commands) and reports webhook status as JSON.
@@ -137,13 +133,11 @@ curl -X POST "https://YOUR_WORKER_URL" \
 123456:AAF-xxxx,111111111,222222222
 ```
 
-请删除旧变量（如有）：`TELEGRAM_TOKEN`、`TELEGRAM_ID`、`WHITE_IP_LIST`。
-
 ### Bot 命令 `/webhook`
 
-1. 浏览器打开一次 Worker 地址（GET `/`），自动完成 `setWebhook` / `setMyCommands`。
-2. 用**管理 id（第一个）** 在 Telegram 与 Bot 对话。
-3. 发送或点击 `/webhook`，Bot 回复公开 Webhook 链接。
+1. 浏览器打开一次 `https://你的Worker域名/setup`，会注册 `/webhook`（与已有命令合并），并以 JSON 返回状态。
+2. 用**管理 id（第一个）** 在 Telegram 发送 `/webhook`。
+3. **重要：** 一个 Bot 只能绑定 **一个** Webhook。若 Token 与 mail2telegram 等共用，请为 cfwebhook **单独新建 Bot**。使用 `/setup?force=1` 会把 Webhook 抢到本服务，导致另一服务失效。
 
 ### 部署
 
