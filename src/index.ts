@@ -1,4 +1,5 @@
 import type { Env } from './env';
+import statusHtml from './status.html';
 
 function appendTimestamp(text: string, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -20,6 +21,16 @@ function appendTimestamp(text: string, timeZone: string): string {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === 'GET') {
+      return new Response(statusHtml, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method not allowed', { status: 405 });
     }
