@@ -8,7 +8,7 @@ var status_default = `<!DOCTYPE html>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='35%25' cy='30%25' r='70%25'%3E%3Cstop offset='0%25' stop-color='%238dffc4'/%3E%3Cstop offset='45%25' stop-color='%233ecf8e'/%3E%3Cstop offset='100%25' stop-color='%231a5c3c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='url(%23g)'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Noto+Sans+SC:wght@500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Noto+Sans+SC:wght@500&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg0: #0b1210;
@@ -28,7 +28,7 @@ var status_default = `<!DOCTYPE html>
       display: grid;
       place-items: center;
       color: var(--text);
-      font-family: "Syne", "Noto Sans SC", sans-serif;
+      font-family: "Unbounded", "Noto Sans SC", sans-serif;
       background:
         radial-gradient(ellipse 80% 60% at 50% 35%, #1a3a2a 0%, transparent 55%),
         radial-gradient(ellipse 100% 80% at 50% 100%, #0e1c16 0%, var(--bg0) 60%);
@@ -39,14 +39,14 @@ var status_default = `<!DOCTYPE html>
 
     .stage {
       text-align: center;
-      padding: 2rem;
+      padding: 1.5rem;
       pointer-events: none;
     }
 
     .orb {
       width: 72px;
       height: 72px;
-      margin: 0 auto 1.75rem;
+      margin: 0 auto 0.9rem;
       border-radius: 50%;
       pointer-events: auto;
       cursor: pointer;
@@ -69,18 +69,18 @@ var status_default = `<!DOCTYPE html>
 
     .status {
       position: relative;
-      min-height: 3.25rem;
+      min-height: 2.6rem;
       display: grid;
       place-items: center;
       line-height: 1.35;
-      padding: 0.15rem 0;
+      padding: 0.1rem 0;
     }
 
     .status span {
       grid-area: 1 / 1;
-      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-size: clamp(1.35rem, 3.6vw, 1.85rem);
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.03em;
       line-height: 1.35;
       opacity: 0;
       transform: translateY(6px);
@@ -89,15 +89,16 @@ var status_default = `<!DOCTYPE html>
 
     .status span.active {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
 
     .hint {
-      margin-top: 1.25rem;
-      font-size: 0.8rem;
+      margin-top: 0.45rem;
+      font-size: 0.72rem;
       font-weight: 500;
       color: var(--muted);
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
+      line-height: 1.45;
       opacity: 0.85;
     }
 
@@ -148,17 +149,18 @@ var status_default = `<!DOCTYPE html>
   <main class="stage">
     <div class="orb" id="orb" title="Open GitHub" role="link" tabindex="0"></div>
     <div class="status" id="status" aria-live="polite">
-      <span class="active">\u8FD0\u884C\u4E2D\u2026</span>
-      <span>Working\u2026</span>
-      <span>\u7A3C\u50CD\u4E2D\u2026</span>
-      <span>En cours\u2026</span>
-      <span>\u0420\u0430\u0431\u043E\u0442\u0430\u0435\u0442\u2026</span>
+      <span class="active">\u8FD0\u884C\u4E2D</span>
+      <span>Working</span>
+      <span>\u904B\u4F5C\u4E2D</span>
+      <span>\u7A3C\u50CD\u4E2D</span>
+      <span>\uC791\uB3D9 \uC911</span>
+      <span>En cours</span>
     </div>
-    <p class="hint">cfwebhook \xB7 online</p>
+    <p class="hint">cf-webhook \xB7 online</p>
   </main>
   <div class="toast" id="toast">Webhook \u5DF2\u590D\u5236</div>
   <script>
-    const GITHUB = "https://github.com/shengshk/cfwebhook";
+    const GITHUB = "https://github.com/shengshk/cf-webhook";
 
     const phrases = document.querySelectorAll("#status span");
     let i = 0;
