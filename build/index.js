@@ -1,3 +1,155 @@
+// src/telegram.ts
+function parseTelegramBot(raw) {
+  if (!raw || raw.trim() === "") return null;
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const token = parts[0];
+  const chatIds = parts.slice(1);
+  if (!token || chatIds.length === 0) return null;
+  return { token, chatIds, adminId: chatIds[0] };
+}
+function apiUrl(token, method) {
+  return `https://api.telegram.org/bot${token}/${method}`;
+}
+async function tgJson(token, method, body) {
+  const res = await fetch(apiUrl(token, method), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === void 0 ? void 0 : JSON.stringify(body)
+  });
+  return res.json();
+}
+async function sendMessage(token, chatId, text) {
+  return fetch(apiUrl(token, "sendMessage"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text })
+  });
+}
+async function sendMessageToAll(token, chatIds, text) {
+  const results = await Promise.all(
+    chatIds.map(async (chatId) => {
+      const res = await sendMessage(token, chatId, text);
+      if (res.ok) return null;
+      return `${chatId}: ${await res.text()}`;
+    })
+  );
+  const errors = results.filter((e) => e !== null);
+  return { ok: errors.length < chatIds.length, errors };
+}
+var WEBHOOK_COMMAND = {
+  command: "webhook",
+  description: "Get webhook URL / \u83B7\u53D6 Webhook \u94FE\u63A5"
+};
+async function setupBotHooks(token, publicOrigin, forceWebhook = false) {
+  const origin = publicOrigin.replace(/\/$/, "");
+  const webhookUrl = `${origin}/telegram`;
+  const webhookInfo = await tgJson(token, "getWebhookInfo");
+  const currentUrl = webhookInfo?.result?.url || "";
+  let setWebhookResult = { skipped: true, current: currentUrl };
+  const canSetWebhook = forceWebhook || !currentUrl || currentUrl === webhookUrl || currentUrl.startsWith(`${origin}/`);
+  if (canSetWebhook) {
+    setWebhookResult = await tgJson(token, "setWebhook", {
+      url: webhookUrl,
+      allowed_updates: ["message"]
+    });
+  } else {
+    setWebhookResult = {
+      skipped: true,
+      reason: "Another webhook is already set on this bot. Use a dedicated bot, or /setup?force=1 to overwrite.",
+      current: currentUrl,
+      wanted: webhookUrl
+    };
+  }
+  const existing = await tgJson(token, "getMyCommands");
+  const commands = [...existing?.result || []];
+  if (!commands.some((c) => c.command === WEBHOOK_COMMAND.command)) {
+    commands.push(WEBHOOK_COMMAND);
+  }
+  const setCommandsResult = await tgJson(token, "setMyCommands", { commands });
+  const afterCommands = await tgJson(token, "getMyCommands");
+  const afterWebhook = await tgJson(token, "getWebhookInfo");
+  return {
+    webhookUrl,
+    setWebhook: setWebhookResult,
+    setMyCommands: setCommandsResult,
+    commands: afterCommands,
+    webhookInfo: afterWebhook
+  };
+}
+async function ensureBotHooks(token, publicOrigin) {
+  await setupBotHooks(token, publicOrigin, false);
+}
+function extractCommand(text) {
+  if (!text) return null;
+  const trimmed = text.trim();
+  const match = trimmed.match(/^\/([a-zA-Z0-9_]+)(?:@\w+)?(?:\s|$)/);
+  return match ? match[1].toLowerCase() : null;
+}
+async function handleTelegramUpdate(update, bot, publicOrigin) {
+  const chatId = String(update.message?.chat?.id ?? "");
+  const command = extractCommand(update.message?.text);
+  if (command !== "webhook") return;
+  if (chatId !== bot.adminId) return;
+  const webhookLink = publicOrigin.replace(/\/$/, "");
+  await sendMessage(bot.token, chatId, webhookLink);
+}
+
+// src/env.ts
+function envLookup(env, ...names) {
+  const bag = /* @__PURE__ */ new Map();
+  for (const [k, v] of Object.entries(env)) {
+    const lk = k.toLowerCase();
+    if (!bag.has(lk)) bag.set(lk, v);
+  }
+  for (const name of names) {
+    const v = bag.get(name.toLowerCase());
+    if (typeof v === "string") return v;
+  }
+  return void 0;
+}
+function parseChannel(raw) {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "webhook") return "webhook";
+  if (v === "all") return "all";
+  return "tgbot";
+}
+function parseHttpUrl(raw) {
+  if (!raw || raw.trim() === "") return void 0;
+  try {
+    const u = new URL(raw.trim());
+    if (u.protocol === "https:" || u.protocol === "http:") return raw.trim();
+  } catch {
+  }
+  return void 0;
+}
+function isValidTimeZone(tz) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(/* @__PURE__ */ new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+function resolveConfig(env) {
+  const timeRaw = envLookup(env, "TIME_MARKER")?.trim();
+  const webhookRaw = envLookup(
+    env,
+    "FORWARD_PATH_WEBHOOK",
+    "FORWAERD_PATH_WEBHOOK"
+  )?.trim();
+  return {
+    whiteIps: envLookup(env, "WHITE_IPs", "WHITE_IPS"),
+    timeZone: timeRaw && isValidTimeZone(timeRaw) ? timeRaw : void 0,
+    channel: parseChannel(envLookup(env, "FORWARD_PATH", "FORWAERD_PATH")),
+    bot: parseTelegramBot(
+      envLookup(env, "FORWARD_PATH_TGBOT", "FORWAERD_PATH_TGBOT", "TELEGRAM_BOT")
+    ),
+    webhookRaw: webhookRaw || void 0,
+    webhookUrl: parseHttpUrl(webhookRaw)
+  };
+}
+
 // src/status.html
 var status_default = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -199,103 +351,6 @@ var status_default = `<!DOCTYPE html>
 </html>
 `;
 
-// src/telegram.ts
-function parseTelegramBot(raw) {
-  if (!raw || raw.trim() === "") return null;
-  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  if (parts.length < 2) return null;
-  const token = parts[0];
-  const chatIds = parts.slice(1);
-  if (!token || chatIds.length === 0) return null;
-  return { token, chatIds, adminId: chatIds[0] };
-}
-function apiUrl(token, method) {
-  return `https://api.telegram.org/bot${token}/${method}`;
-}
-async function tgJson(token, method, body) {
-  const res = await fetch(apiUrl(token, method), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body === void 0 ? void 0 : JSON.stringify(body)
-  });
-  return res.json();
-}
-async function sendMessage(token, chatId, text) {
-  return fetch(apiUrl(token, "sendMessage"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text })
-  });
-}
-async function sendMessageToAll(token, chatIds, text) {
-  const results = await Promise.all(
-    chatIds.map(async (chatId) => {
-      const res = await sendMessage(token, chatId, text);
-      if (res.ok) return null;
-      return `${chatId}: ${await res.text()}`;
-    })
-  );
-  const errors = results.filter((e) => e !== null);
-  return { ok: errors.length < chatIds.length, errors };
-}
-var WEBHOOK_COMMAND = {
-  command: "webhook",
-  description: "Get webhook URL / \u83B7\u53D6 Webhook \u94FE\u63A5"
-};
-async function setupBotHooks(token, publicOrigin, forceWebhook = false) {
-  const origin = publicOrigin.replace(/\/$/, "");
-  const webhookUrl = `${origin}/telegram`;
-  const webhookInfo = await tgJson(token, "getWebhookInfo");
-  const currentUrl = webhookInfo?.result?.url || "";
-  let setWebhookResult = { skipped: true, current: currentUrl };
-  const canSetWebhook = forceWebhook || !currentUrl || currentUrl === webhookUrl || currentUrl.startsWith(`${origin}/`);
-  if (canSetWebhook) {
-    setWebhookResult = await tgJson(token, "setWebhook", {
-      url: webhookUrl,
-      allowed_updates: ["message"]
-    });
-  } else {
-    setWebhookResult = {
-      skipped: true,
-      reason: "Another webhook is already set on this bot. Use a dedicated bot, or /setup?force=1 to overwrite.",
-      current: currentUrl,
-      wanted: webhookUrl
-    };
-  }
-  const existing = await tgJson(token, "getMyCommands");
-  const commands = [...existing?.result || []];
-  if (!commands.some((c) => c.command === WEBHOOK_COMMAND.command)) {
-    commands.push(WEBHOOK_COMMAND);
-  }
-  const setCommandsResult = await tgJson(token, "setMyCommands", { commands });
-  const afterCommands = await tgJson(token, "getMyCommands");
-  const afterWebhook = await tgJson(token, "getWebhookInfo");
-  return {
-    webhookUrl,
-    setWebhook: setWebhookResult,
-    setMyCommands: setCommandsResult,
-    commands: afterCommands,
-    webhookInfo: afterWebhook
-  };
-}
-async function ensureBotHooks(token, publicOrigin) {
-  await setupBotHooks(token, publicOrigin, false);
-}
-function extractCommand(text) {
-  if (!text) return null;
-  const trimmed = text.trim();
-  const match = trimmed.match(/^\/([a-zA-Z0-9_]+)(?:@\w+)?(?:\s|$)/);
-  return match ? match[1].toLowerCase() : null;
-}
-async function handleTelegramUpdate(update, bot, publicOrigin) {
-  const chatId = String(update.message?.chat?.id ?? "");
-  const command = extractCommand(update.message?.text);
-  if (command !== "webhook") return;
-  if (chatId !== bot.adminId) return;
-  const webhookLink = publicOrigin.replace(/\/$/, "");
-  await sendMessage(bot.token, chatId, webhookLink);
-}
-
 // src/index.ts
 function appendTimestamp(text, timeZone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -322,17 +377,32 @@ function checkWhiteIps(request, whiteIps) {
   }
   return null;
 }
+async function forwardWebhook(url, body, contentType) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": contentType },
+      body
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `webhook ${res.status}: ${await res.text()}` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "fetch failed";
+    return { ok: false, error: `webhook: ${msg}` };
+  }
+}
 var index_default = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = url.origin;
-    const bot = parseTelegramBot(env.TELEGRAM_BOT);
+    const cfg = resolveConfig(env);
+    const bot = cfg.bot;
     if (url.pathname === "/telegram") {
       if (request.method !== "POST") {
         return new Response("Method not allowed", { status: 405 });
       }
       if (!bot) {
-        return new Response("TELEGRAM_BOT not configured", { status: 500 });
+        return new Response("FORWARD_PATH_TGBOT not configured", { status: 500 });
       }
       try {
         const update = await request.json();
@@ -343,7 +413,7 @@ var index_default = {
     }
     if (request.method === "GET" && url.pathname === "/setup") {
       if (!bot) {
-        return new Response(JSON.stringify({ ok: false, error: "TELEGRAM_BOT not configured" }), {
+        return new Response(JSON.stringify({ ok: false, error: "FORWARD_PATH_TGBOT not configured" }), {
           status: 500,
           headers: { "Content-Type": "application/json; charset=utf-8" }
         });
@@ -373,25 +443,47 @@ var index_default = {
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
     }
-    const denied = checkWhiteIps(request, env.WHITE_IPs);
+    const denied = checkWhiteIps(request, cfg.whiteIps);
     if (denied) return denied;
-    if (!bot) {
-      return new Response("TELEGRAM_BOT not configured", { status: 500 });
+    const needTg = cfg.channel === "tgbot" || cfg.channel === "all";
+    const needWh = cfg.channel === "webhook" || cfg.channel === "all";
+    if (needTg && !bot) {
+      return new Response("FORWARD_PATH_TGBOT not configured", { status: 500 });
+    }
+    if (needWh && !cfg.webhookRaw) {
+      return new Response("FORWARD_PATH_WEBHOOK not configured", { status: 500 });
+    }
+    if (needWh && !cfg.webhookUrl) {
+      return new Response("FORWARD_PATH_WEBHOOK must be an http or https URL", { status: 500 });
     }
     const rawText = await request.text();
     if (!rawText || rawText.trim() === "") {
       return new Response("Empty message", { status: 400 });
     }
     let messageContent = rawText;
-    if (env.TIMER_STAMP && env.TIMER_STAMP.trim() !== "") {
+    if (cfg.timeZone) {
       try {
-        messageContent = appendTimestamp(rawText, env.TIMER_STAMP.trim());
+        messageContent = appendTimestamp(rawText, cfg.timeZone);
       } catch {
       }
     }
-    const { ok, errors } = await sendMessageToAll(bot.token, bot.chatIds, messageContent);
-    if (!ok) {
-      return new Response(`Telegram API Error: ${errors.join(" | ")}`, { status: 500 });
+    const errors = [];
+    let okCount = 0;
+    if (needTg && bot) {
+      const tg = await sendMessageToAll(bot.token, bot.chatIds, messageContent);
+      if (tg.ok) okCount += 1;
+      errors.push(...tg.errors);
+    }
+    if (needWh && cfg.webhookUrl) {
+      const contentType = request.headers.get("Content-Type") || "text/plain; charset=utf-8";
+      const wh = await forwardWebhook(cfg.webhookUrl, messageContent, contentType);
+      if (wh.ok) okCount += 1;
+      else if (wh.error) errors.push(wh.error);
+    }
+    if (okCount === 0) {
+      return new Response(`Forward error: ${errors.join(" | ") || "all channels failed"}`, {
+        status: 500
+      });
     }
     if (errors.length > 0) {
       return new Response(`Partial success: ${errors.join(" | ")}`, { status: 200 });

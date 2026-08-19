@@ -1,9 +1,8 @@
-import type { Env } from './env';
+import { resolveConfig, type Env } from './env';
 import statusHtml from './status.html';
 import {
   ensureBotHooks,
   handleTelegramUpdate,
-  parseTelegramBot,
   sendMessageToAll,
   setupBotHooks,
 } from './telegram';
@@ -38,11 +37,31 @@ function checkWhiteIps(request: Request, whiteIps: string | undefined): Response
   return null;
 }
 
+async function forwardWebhook(
+  url: string,
+  body: string,
+  contentType: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': contentType },
+      body,
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: `webhook ${res.status}: ${await res.text()}` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'fetch failed';
+    return { ok: false, error: `webhook: ${msg}` };
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const origin = url.origin;
-    const bot = parseTelegramBot(env.TELEGRAM_BOT);
+    const cfg = resolveConfig(env);
+    const bot = cfg.bot;
 
     // Bot callback from Telegram — no IP allowlist
     if (url.pathname === '/telegram') {
@@ -50,7 +69,7 @@ export default {
         return new Response('Method not allowed', { status: 405 });
       }
       if (!bot) {
-        return new Response('TELEGRAM_BOT not configured', { status: 500 });
+        return new Response('FORWARD_PATH_TGBOT not configured', { status: 500 });
       }
 
       try {
@@ -64,7 +83,7 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/setup') {
       if (!bot) {
-        return new Response(JSON.stringify({ ok: false, error: 'TELEGRAM_BOT not configured' }), {
+        return new Response(JSON.stringify({ ok: false, error: 'FORWARD_PATH_TGBOT not configured' }), {
           status: 500,
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
         });
@@ -99,11 +118,20 @@ export default {
       return new Response('Method not allowed', { status: 405 });
     }
 
-    const denied = checkWhiteIps(request, env.WHITE_IPs);
+    const denied = checkWhiteIps(request, cfg.whiteIps);
     if (denied) return denied;
 
-    if (!bot) {
-      return new Response('TELEGRAM_BOT not configured', { status: 500 });
+    const needTg = cfg.channel === 'tgbot' || cfg.channel === 'all';
+    const needWh = cfg.channel === 'webhook' || cfg.channel === 'all';
+
+    if (needTg && !bot) {
+      return new Response('FORWARD_PATH_TGBOT not configured', { status: 500 });
+    }
+    if (needWh && !cfg.webhookRaw) {
+      return new Response('FORWARD_PATH_WEBHOOK not configured', { status: 500 });
+    }
+    if (needWh && !cfg.webhookUrl) {
+      return new Response('FORWARD_PATH_WEBHOOK must be an http or https URL', { status: 500 });
     }
 
     const rawText = await request.text();
@@ -113,19 +141,34 @@ export default {
     }
 
     let messageContent = rawText;
-
-    if (env.TIMER_STAMP && env.TIMER_STAMP.trim() !== '') {
+    if (cfg.timeZone) {
       try {
-        messageContent = appendTimestamp(rawText, env.TIMER_STAMP.trim());
+        messageContent = appendTimestamp(rawText, cfg.timeZone);
       } catch {
         // Invalid timezone: leave body unchanged
       }
     }
 
-    const { ok, errors } = await sendMessageToAll(bot.token, bot.chatIds, messageContent);
+    const errors: string[] = [];
+    let okCount = 0;
 
-    if (!ok) {
-      return new Response(`Telegram API Error: ${errors.join(' | ')}`, { status: 500 });
+    if (needTg && bot) {
+      const tg = await sendMessageToAll(bot.token, bot.chatIds, messageContent);
+      if (tg.ok) okCount += 1;
+      errors.push(...tg.errors);
+    }
+
+    if (needWh && cfg.webhookUrl) {
+      const contentType = request.headers.get('Content-Type') || 'text/plain; charset=utf-8';
+      const wh = await forwardWebhook(cfg.webhookUrl, messageContent, contentType);
+      if (wh.ok) okCount += 1;
+      else if (wh.error) errors.push(wh.error);
+    }
+
+    if (okCount === 0) {
+      return new Response(`Forward error: ${errors.join(' | ') || 'all channels failed'}`, {
+        status: 500,
+      });
     }
 
     if (errors.length > 0) {

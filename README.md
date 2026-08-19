@@ -19,40 +19,44 @@
 
 <p align="right"><a href="#中文">中文 ▸</a></p>
 
-Cloudflare Worker that receives HTTP webhooks and forwards the body to Telegram.
+Cloudflare Worker that receives HTTP webhooks and forwards the body to Telegram and/or another webhook.
 
 ### What it does
 
 | Path / Method | Behavior |
 |---------------|----------|
 | **GET /** | Status page (“running”). Center orb → GitHub; elsewhere → copy webhook URL (`location.origin`). Also registers Telegram `/webhook` command + bot webhook in the background. |
-| **POST /** | Business receive: forward request body to **all** configured chat IDs. Body is **not modified**, except optional timestamp. Optional `WHITE_IPs` apply here only. |
+| **POST /** | Business receive: forward request body to Telegram and/or a downstream `https`/`http` webhook (`FORWARD_PATH`). Body is **not modified**, except optional timestamp. Optional `WHITE_IPs` apply here only. |
 | **POST /telegram** | Telegram Bot callback (no IP allowlist). Admin (first chat id) can send `/webhook` to receive the public webhook URL. |
 
 Typical business flow:
 
 1. Client `POST`s to your Worker root URL.
 2. Optional IP allowlist.
-3. Optional timezone timestamp.
-4. Message is sent to every chat id in `TELEGRAM_BOT`.
+3. Optional timezone timestamp (`TIME_MARKER`).
+4. Message is sent to the channel(s) in `FORWARD_PATH` (`tgbot`, `webhook`, or `all`).
 5. Returns `Success` (or partial/error info).
 
 ### Cloudflare variables
 
 **Settings → Variables and Secrets**
 
+Names and enum values are case-insensitive. Token, chat id, URL, timezone, and IP keep original case.
+
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `TELEGRAM_BOT` | Yes | `token,admin_id[,id2,id3...]` — Bot token, then chat ids. **First id = admin** (can use `/webhook`). **All ids** receive forwarded messages. |
+| `FORWARD_PATH` | No | `tgbot` (default) / `webhook` / `all`. |
+| `FORWARD_PATH_TGBOT` | If path includes `tgbot` | `token,admin_id[,id2,id3...]`. **First id = admin** (can use `/webhook`). **All ids** receive Telegram messages. Alias: `TELEGRAM_BOT`. |
+| `FORWARD_PATH_WEBHOOK` | If path includes `webhook` | Downstream URL. `https://` and `http://` are both accepted. Worker `POST`s the same body. |
 | `WHITE_IPs` | No | Comma-separated IPs for **POST /** only. Empty / unset = allow all. Uses `CF-Connecting-IP`. |
-| `TIMER_STAMP` | No | IANA timezone, e.g. `Asia/Shanghai`. Empty / invalid / unset = off. Appends: |
+| `TIME_MARKER` | No | IANA timezone, e.g. `Asia/Shanghai`. Empty / invalid / unset = off. Appends: |
 
 ```text
 —————————
 时间: 2026-08-03 02:00
 ```
 
-Example `TELEGRAM_BOT`:
+Example `FORWARD_PATH_TGBOT`:
 
 ```text
 123456:AAF-xxxx,111111111,222222222
@@ -101,40 +105,44 @@ curl -X POST "https://YOUR_WORKER_URL" \
 
 <p align="right"><a href="#english">◂ English</a></p>
 
-将 HTTP Webhook 请求体转发到 Telegram 的 Cloudflare Worker。
+将 HTTP Webhook 请求体转发到 Telegram 和/或其他 webhook 的 Cloudflare Worker。
 
 ### 功能说明
 
 | 路径 / 方法 | 行为 |
 |-------------|------|
 | **GET /** | 状态页。点中心 → GitHub；点其他区域 → 复制 Webhook（`location.origin`）。后台注册 Bot 的 `/webhook` 命令与 Telegram Webhook。 |
-| **POST /** | 业务接收：正文转发到配置的**全部** chat id。**不改动正文**，仅可选追加时间戳。`WHITE_IPs` 只作用于此路径。 |
+| **POST /** | 业务接收：按 `FORWARD_PATH` 转发到 Telegram 和/或下游 `https`/`http` webhook。**不改动正文**，仅可选追加时间戳。`WHITE_IPs` 只作用于此路径。 |
 | **POST /telegram** | Telegram 回调（**不走** IP 白名单）。仅**管理 id（第一个）** 可发 `/webhook`，Bot 回传公开 Webhook 链接。 |
 
 业务流程：
 
 1. 客户端 `POST` 到 Worker 根路径。
 2. 可选 IP 白名单。
-3. 可选时区时间戳。
-4. 向 `TELEGRAM_BOT` 中全部 id 发送。
+3. 可选时区时间戳（`TIME_MARKER`）。
+4. 按 `FORWARD_PATH`（`tgbot` / `webhook` / `all`）发送。
 5. 返回 `Success`（或部分成功 / 错误信息）。
 
 ### 在 Cloudflare 配置变量
 
 **设置 → 变量和密钥**
 
+变量名与枚举值大小写不敏感。Token、chat id、URL、时区、IP 保持原样。
+
 | 变量 | 必需 | 说明 |
 |------|------|------|
-| `TELEGRAM_BOT` | 是 | `token,管理id[,id2,id3...]`。第一段为 Bot Token；其后为 chat id。**第一个 id = 管理**（可 `/webhook`）。**全部 id** 接收转发消息。 |
+| `FORWARD_PATH` | 否 | `tgbot`（默认）/ `webhook` / `all`。 |
+| `FORWARD_PATH_TGBOT` | 通道含 `tgbot` 时 | `token,管理id[,id2,id3...]`。**第一个 id = 管理**（可 `/webhook`）。**全部 id** 收 Telegram。旧名 `TELEGRAM_BOT` 仍可用。 |
+| `FORWARD_PATH_WEBHOOK` | 通道含 `webhook` 时 | 下游 URL，`https://` 与 `http://` 均可。Worker 再 `POST` 同一正文。 |
 | `WHITE_IPs` | 否 | 仅限制 **POST /**。逗号分隔。空 / 未配置 = 不限制。 |
-| `TIMER_STAMP` | 否 | IANA 时区，如 `Asia/Shanghai`。未配置 / 无效 = 关闭。开启时追加： |
+| `TIME_MARKER` | 否 | IANA 时区，如 `Asia/Shanghai`。未配置 / 无效 = 关闭。开启时追加： |
 
 ```text
 —————————
 时间: 2026-08-03 02:00
 ```
 
-`TELEGRAM_BOT` 示例：
+`FORWARD_PATH_TGBOT` 示例：
 
 ```text
 123456:AAF-xxxx,111111111,222222222
