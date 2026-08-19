@@ -44,7 +44,10 @@ function parseHttpUrl(raw: string | undefined): string | undefined {
   if (!raw || raw.trim() === '') return undefined;
   try {
     const u = new URL(raw.trim());
-    if (u.protocol === 'https:' || u.protocol === 'http:') return raw.trim();
+    if (u.protocol === 'https:' || u.protocol === 'http:') {
+      u.pathname = u.pathname.replace(/\/{2,}/g, '/');
+      return u.toString();
+    }
   } catch {
     // invalid URL
   }

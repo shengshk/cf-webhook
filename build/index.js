@@ -118,7 +118,10 @@ function parseHttpUrl(raw) {
   if (!raw || raw.trim() === "") return void 0;
   try {
     const u = new URL(raw.trim());
-    if (u.protocol === "https:" || u.protocol === "http:") return raw.trim();
+    if (u.protocol === "https:" || u.protocol === "http:") {
+      u.pathname = u.pathname.replace(/\/{2,}/g, "/");
+      return u.toString();
+    }
   } catch {
   }
   return void 0;
